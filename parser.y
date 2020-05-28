@@ -1,19 +1,31 @@
-%{
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<math.h>
-FILE extern *yyin;
-char extern *yytext;
-int yylineno;
-int yylex();
-int yyerror(char const * s);
-void agregaTabla(char * var, char *tipo);
-void crearTabla();
-void checkVariable(char * var);
-void imprimeTabla();
-void checkSimbolo(char *var);
+/*
+  Este archivo contiene un reconocedor de expresiones aritmeticas junto
+  con algunas reglas semanticas forman parte de la gramatica proporcionada
+  por el profesor, contine tambien una tabla de simbolos general,
+  Contiene la implementacion de un arbol sintactico y el interprete requerido.
 
+  Autores:
+      Erick de Jesus Hernandez Cerecedo A01066428
+      Everardo Becerril                 A013
+
+*/
+
+%{
+  #include<stdio.h>
+  #include<stdlib.h>
+  #include<string.h>
+  #include<math.h>
+  #include <stdbool.h>
+  FILE extern *yyin;                          // Apuntador a archivo de texto
+  char extern *yytext;                        // Variable de texto (Empleadas por bisont)
+  int yylineno;                               // Variable de linea (Empleadas por bisont)
+  int yylex();                                
+  int yyerror(char const * s);                // Funcion que imprime errores
+  void init();                                // Funcion que inicia la tabla de simbolos
+  void imprimeTabla();                        // Muestra el mensaje de programa aceptado
+  void agregaTabla(char * var, char *tipo);   // Funcion que agrega una variable a la tabla de simbolos
+  void checkVariable(char * var);             // Funcion que revisa si una variable fue inicializada
+  bool checkSimbolo(char *var);               // Funcion que verifica si una variable ya existe en la tabla
 %}
 %union{
   char *id;
@@ -100,82 +112,88 @@ expresion   : expr MENORQUE expr
 
 %%
 
+// Tabla de Simbolos
 char symbolTable [100][50][2];
 
-//INICIO LA TABLA
-void crearTabla(){
-  int i;
-  for (i = 0; i < 100; i++){
+// Funcion que inicia la tabla de simbolos
+void init(){
+  for (int i = 0; i < 100; i++){
     strcpy(symbolTable[i][0], "");
     strcpy(symbolTable[i][1], "");
   }
 }
 
-//CHECA SI NO ESTA EL SIMBOLO YA EN LA TABLA
-void checkSimbolo(char *var){
-  int i = 0;
-  for (i = 0; i < 100; i++){
+// Funcion que verifica si una variable ya existe en la tabla
+bool checkSimbolo(char *var){
+  bool resultado = false;
+  for (int i = 0; i < 100; i++){
     if (strcmp(symbolTable[i][0], var) == 0){
-      char errorMsg [255];
-      sprintf(errorMsg, "La variable %s ya estaba inicializada", var);
-      yyerror(errorMsg);
-      exit(-1);
+      resultado = true;
+      break;
     }
   }
+  return resultado;
 }
 
-//CHECA SI LA VARIABLE ESTA DENTRO DE LA TABLA 
+// Funcion que revisa si una variable fue inicializada
 void checkVariable(char * var){
-  int i;
-  for (i = 0; i < 100; i++){
-    if (strcmp(symbolTable[i][0], var) == 0){
-      return;
-    } 
+  if (buscaSimbolo(var) == false){
+    char errorMsg [255];
+    sprintf(errorMsg, "La variable %s no fue inicializada", var);
+    yyerror(errorMsg);
+    //exit(-1);
   }
-  char errorMsg [255];
-  sprintf(errorMsg, "La variable %s no estaba inicializada", var);
-  yyerror(errorMsg);
-  exit(-1);
 }
 
-//INSERTA UN NUEVO SIMBOLO Y CHECA SI NO ESTA YA DECLARADO Y SI NO LO ANIADE EN LA PRIMER POSICION VACIA
+// Funcion que agrega una variable a la tabla de simbolos si y solo si, este no fue declarado antes
 void agregaTabla(char *var, char *tipo){
-  checkSimbolo(var);
-  int i = 0;
-  for (i = 0; i < 100; i++){
-    if (strcmp(symbolTable[i][0], "") == 0){
-      strcpy(symbolTable[i][0], var);
-      strcpy(symbolTable[i][1], tipo);
-      break;    
-    }
+  if (buscaSimbolo(var)){
+    char errorMsg [255];
+    sprintf(errorMsg, "La variable %s ya fue declarada", var);
+    yyerror(errorMsg);
+    //exit(-1);
   }
+  else{
+    for (int i = 0; i < 100; i++){
+      if (strcmp(symbolTable[i][0], "") == 0){
+        strcpy(symbolTable[i][0], var);
+        strcpy(symbolTable[i][1], tipo);
+        break;    
+      }
+    }
+  } 
 }
 
-//IMPRIME TABLA DE SIMBOLOS
+// Muestra el resultado de un programa aceptado
 void imprimeTabla(){
-  printf("Tabla de simbolos: \n");
-  int i; 
-  for (i = 0; i < 100; i++){
+  printf("...Programa aceptado...\n");
+  printf("\n+---------------------------\n");
+  printf("| Tabla de Simbolos \n"); 
+  printf("+---------------------------\n");
+  for (int i = 0; i < 100; i++){
     if (strcmp(symbolTable[i][0], "") != 0){
-      printf("%s  %s\n", symbolTable[i][0], symbolTable[i][1]);
+      printf("| %d.-  %s : %s\n", i, symbolTable[i][0], symbolTable[i][1]);
+      printf("+---------------------------\n");
     }
   }
 }
 
 
-//IMPRIME ERROR
+// Funcion que muestra los errores
 int yyerror(char const * s){
- fprintf(stderr, "%s en la linea: %d \n", s, yylineno);
- return 1;
+  fprintf(stderr, "%s: ver linea << %d >> simbolo << %s >>\n", s, yylineno, yytext)
+  return 1;
 }
- 
 
-
-//MAIN 
+// Funcion Main 
 int main(int argc, char *argv[]) {
-    crearTabla();
+  init();
+  if(argc == 1)
+    printf("No fue encontrado el archivo del programa especificado.\n");
+  else{
     yyin = fopen(argv[1], "r");
     yyparse();
-    fclose(yyin);
+  }
+  fclose(yyin);
 }
 
